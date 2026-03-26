@@ -246,45 +246,65 @@ class PhoneFrame(tk.Tk):
         self.configure(bg=COLORS["outer_bg"])
         self.resizable(False, False)
 
-        self.phone_w, self.phone_h = 420, 820
+        base_w, base_h = 420, 820
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        usable_w = screen_w - 160
+        usable_h = screen_h - 220
+        scale = min(usable_w / base_w, usable_h / base_h, 1.0)
+        scale = max(scale, 0.55)
+        self.ui_scale = scale
+        self.phone_w, self.phone_h = int(base_w * scale), int(base_h * scale)
+
+        def s(value):
+            return int(value * scale)
+
+        win_w = self.phone_w + s(40)
+        win_h = self.phone_h + s(40)
+        pos_x = max(0, (screen_w - win_w) // 2)
+        pos_y = max(0, (screen_h - win_h) // 2)
+        self.geometry(f"{win_w}x{win_h}+{pos_x}+{pos_y}")
+
         self.canvas = tk.Canvas(
             self,
-            width=self.phone_w + 40,
-            height=self.phone_h + 40,
+            width=win_w,
+            height=win_h,
             highlightthickness=0,
             bg=COLORS["outer_bg"],
         )
-        self.canvas.pack(padx=10, pady=10)
+        self.canvas.pack(padx=s(10), pady=s(10))
 
         round_rect(
             self.canvas,
-            20,
-            20,
-            20 + self.phone_w,
-            20 + self.phone_h,
-            r=36,
+            s(20),
+            s(20),
+            s(20) + self.phone_w,
+            s(20) + self.phone_h,
+            r=s(36),
             fill=COLORS["phone_body"],
             outline="",
         )
         round_rect(
             self.canvas,
-            34,
-            64,
-            34 + self.phone_w - 28,
-            64 + self.phone_h - 90,
-            r=28,
+            s(34),
+            s(64),
+            s(34) + self.phone_w - s(28),
+            s(64) + self.phone_h - s(90),
+            r=s(28),
             fill=COLORS["screen_bg"],
             outline="",
         )
-        self.canvas.create_oval(200, 44, 280, 68, fill=COLORS["phone_body"], outline="")
+        self.canvas.create_oval(
+            s(200), s(44), s(280), s(68), fill=COLORS["phone_body"], outline=""
+        )
 
         self.screen_frame = tk.Frame(self.canvas, bg=COLORS["screen_bg"])
         self.canvas.create_window(
-            40,
-            70,
+            s(40),
+            s(70),
             anchor="nw",
-            width=self.phone_w - 40,
-            height=self.phone_h - 102,
+            width=self.phone_w - s(40),
+            height=self.phone_h - s(102),
             window=self.screen_frame,
         )
 
@@ -305,18 +325,23 @@ class MobilePredictiveApp:
         # Presenter: Main UI layout: header, stats, text area, chips, buttons, keyboard.
         sf = self.root.screen_frame
 
-        self.hfont = font.Font(family="Segoe UI", size=16, weight="bold")
-        self.sfont = font.Font(family="Segoe UI", size=10)
-        self.tfont = font.Font(family="Segoe UI", size=12)
-        self.kfont = font.Font(family="Segoe UI", size=11, weight="bold")
+        scale = getattr(self.root, "ui_scale", 1.0)
 
-        header = tk.Canvas(sf, height=110, bg=COLORS["header"], highlightthickness=0)
+        def px(value):
+            return max(1, int(value * scale))
+
+        self.hfont = font.Font(family="Segoe UI", size=max(12, int(16 * scale)), weight="bold")
+        self.sfont = font.Font(family="Segoe UI", size=max(8, int(10 * scale)))
+        self.tfont = font.Font(family="Segoe UI", size=max(9, int(12 * scale)))
+        self.kfont = font.Font(family="Segoe UI", size=max(9, int(11 * scale)), weight="bold")
+
+        header = tk.Canvas(sf, height=px(110), bg=COLORS["header"], highlightthickness=0)
         header.pack(fill="x")
-        header.create_oval(-80, -40, 140, 120, fill=COLORS["header_light"], outline="")
-        header.create_oval(200, -20, 440, 140, fill=COLORS["header_dark"], outline="")
+        header.create_oval(px(-80), px(-40), px(140), px(120), fill=COLORS["header_light"], outline="")
+        header.create_oval(px(200), px(-20), px(440), px(140), fill=COLORS["header_dark"], outline="")
         header.create_text(
-            18,
-            32,
+            px(18),
+            px(32),
             text="Predictive Text",
             anchor="w",
             font=self.hfont,
@@ -324,7 +349,7 @@ class MobilePredictiveApp:
         )
         header.create_text(
             18,
-            64,
+            px(64),
             text="N-gram model with NLTK corpora",
             anchor="w",
             font=self.sfont,
@@ -332,7 +357,7 @@ class MobilePredictiveApp:
         )
 
         stats = tk.Frame(sf, bg=COLORS["screen_bg"])
-        stats.pack(fill="x", padx=14, pady=(8, 4))
+        stats.pack(fill="x", padx=px(14), pady=(px(8), px(4)))
         self.stats_label = tk.Label(
             stats,
             text=self._stats_text(),
@@ -344,7 +369,7 @@ class MobilePredictiveApp:
         self.stats_label.pack(side="left", fill="x", expand=True)
 
         data_row = tk.Frame(sf, bg=COLORS["screen_bg"])
-        data_row.pack(fill="x", padx=14, pady=(0, 6))
+        data_row.pack(fill="x", padx=px(14), pady=(0, px(6)))
         add_btn = tk.Button(
             data_row,
             text="Add Data File",
@@ -352,8 +377,8 @@ class MobilePredictiveApp:
             bg=COLORS["header"],
             fg="white",
             bd=0,
-            padx=12,
-            pady=6,
+            padx=px(12),
+            pady=px(6),
             font=self.sfont,
             activebackground=COLORS["header_dark"],
             relief="flat",
@@ -366,24 +391,24 @@ class MobilePredictiveApp:
             highlightthickness=1,
             highlightbackground=COLORS["border"],
         )
-        text_wrap.pack(fill="both", expand=True, padx=14, pady=(6, 6))
+        text_wrap.pack(fill="both", expand=True, padx=px(14), pady=(px(6), px(6)))
         self.text = tk.Text(
             text_wrap,
-            height=8,
+            height=max(5, int(8 * scale)),
             wrap="word",
             bd=0,
             relief="flat",
             bg="white",
             fg=COLORS["muted"],
             padx=12,
-            pady=12,
+            pady=px(12),
             font=self.tfont,
         )
         self.text.pack(fill="both", expand=True)
         self.text.insert("1.0", self.placeholder)
 
         controls = tk.Frame(sf, bg=COLORS["screen_bg"])
-        controls.pack(fill="x", padx=14, pady=(0, 6))
+        controls.pack(fill="x", padx=px(14), pady=(0, px(6)))
         auto = tk.Checkbutton(
             controls,
             text="Auto suggest",
@@ -398,7 +423,7 @@ class MobilePredictiveApp:
         auto.pack(side="left")
 
         self.chip_bar = tk.Frame(sf, bg=COLORS["screen_bg"])
-        self.chip_bar.pack(fill="x", padx=12, pady=(0, 6))
+        self.chip_bar.pack(fill="x", padx=px(12), pady=(0, px(6)))
         self.chips = []
         for _ in range(3):
             btn = tk.Button(
@@ -408,17 +433,17 @@ class MobilePredictiveApp:
                 bg=COLORS["chip_bg"],
                 fg=COLORS["text"],
                 bd=0,
-                padx=14,
-                pady=6,
+                padx=px(14),
+                pady=px(6),
                 font=self.tfont,
                 relief="flat",
                 activebackground=COLORS["chip_active"],
             )
-            btn.pack(side="left", padx=6)
+            btn.pack(side="left", padx=px(6))
             self.chips.append(btn)
 
         actions = tk.Frame(sf, bg=COLORS["screen_bg"])
-        actions.pack(fill="x", padx=14, pady=(0, 8))
+        actions.pack(fill="x", padx=px(14), pady=(0, px(8)))
         self.gen_btn = tk.Button(
             actions,
             text="Suggest",
@@ -426,13 +451,13 @@ class MobilePredictiveApp:
             bg=COLORS["primary_btn"],
             fg="white",
             bd=0,
-            padx=14,
-            pady=10,
+            padx=px(14),
+            pady=px(10),
             font=self.tfont,
             relief="flat",
             activebackground=COLORS["primary_btn_active"],
         )
-        self.gen_btn.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        self.gen_btn.pack(side="left", fill="x", expand=True, padx=(0, px(6)))
         clear_btn = tk.Button(
             actions,
             text="Clear",
@@ -446,7 +471,7 @@ class MobilePredictiveApp:
             relief="flat",
             activebackground=COLORS["secondary_btn_active"],
         )
-        clear_btn.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        clear_btn.pack(side="left", fill="x", expand=True, padx=(px(6), 0))
 
         self._build_keyboard(sf)
 
@@ -531,7 +556,7 @@ class MobilePredictiveApp:
     def _build_keyboard(self, parent):
         # Presenter: On-screen keyboard to mimic a mobile typing experience.
         kb = tk.Frame(parent, bg=COLORS["keyboard_bg"])
-        kb.pack(fill="x", padx=8, pady=(0, 8))
+        kb.pack(fill="x", padx=px(8), pady=(0, px(8)))
 
         rows = [
             list("qwertyuiop"),
@@ -570,7 +595,7 @@ class MobilePredictiveApp:
 
         for row in rows:
             rowf = tk.Frame(kb, bg=COLORS["keyboard_bg"])
-            rowf.pack(pady=3)
+            rowf.pack(pady=px(3))
             for ch in row:
                 label = ch.upper() if len(ch) == 1 else ch
                 btn = tk.Button(
@@ -584,7 +609,7 @@ class MobilePredictiveApp:
                     relief="flat",
                     command=lambda c=ch: insert_char(c),
                 )
-                btn.pack(side="left", padx=3)
+                btn.pack(side="left", padx=px(3), pady=px(1))
                 if len(ch) == 1:
                     self.alpha_buttons.append((ch, btn))
 
