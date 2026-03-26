@@ -4,11 +4,14 @@ import tkinter as tk
 from tkinter import filedialog, font, messagebox
 from collections import Counter, defaultdict
 
+# Presenter: We use NLTK for real tokenization and standard corpora,
+# so the dataset is larger and the predictions look realistic.
 import nltk
 from nltk.util import ngrams
 from nltk.tokenize import word_tokenize
 
 
+# Presenter: App-level settings for title, dataset size limits, and UI colors.
 APP_TITLE = "Predictive Text Generator"
 MAX_TOKENS = 200000
 MAX_SOURCE_CHARS = 160000
@@ -41,9 +44,11 @@ This demo uses an N-gram model trained on multiple corpora.
 More data improves the quality and variety of the suggestions.
 """
 
+# Presenter: We keep only word tokens (letters + apostrophes) for clean modeling.
 WORD_RE = re.compile(r"[a-z']+")
 
 
+# Presenter: Safe file reader to cap large text files during demo.
 def _read_file(path, limit_chars=MAX_SOURCE_CHARS):
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -52,6 +57,7 @@ def _read_file(path, limit_chars=MAX_SOURCE_CHARS):
         return ""
 
 
+# Presenter: Verify required NLTK resources; fail fast with a clear command.
 def ensure_nltk_data():
     required = {
         "punkt": "tokenizers/punkt",
@@ -92,6 +98,7 @@ def ensure_nltk_data():
     return downloaded
 
 
+# Presenter: Load text from local file + NLTK corpora to expand the dataset.
 def load_text_sources(base_dir):
     sources = []
     local_path = os.path.join(base_dir, "data.txt")
@@ -121,6 +128,7 @@ def load_text_sources(base_dir):
 
 class NgramPredictor:
     def __init__(self, n=3):
+        # Presenter: We keep unigram, bigram, and trigram counts for fast lookup.
         self.n = max(2, int(n))
         self.models = {k: defaultdict(Counter) for k in range(2, self.n + 1)}
         self.unigrams = Counter()
@@ -128,6 +136,7 @@ class NgramPredictor:
         self.total_tokens = 0
 
     def tokenize(self, text):
+        # Presenter: Tokenize, lowercase, and filter to consistent word tokens.
         try:
             tokens = word_tokenize(text.lower())
         except LookupError as exc:
@@ -137,6 +146,7 @@ class NgramPredictor:
         return [t for t in tokens if WORD_RE.fullmatch(t)]
 
     def train_tokens(self, tokens):
+        # Presenter: Build frequency tables for all n-grams.
         if not tokens:
             return
         self.total_tokens += len(tokens)
@@ -149,6 +159,7 @@ class NgramPredictor:
                 self.models[n][context][nxt] += 1
 
     def train_from_texts(self, texts, max_tokens=MAX_TOKENS):
+        # Presenter: Combine text sources, limit total size, then train once.
         tokens = []
         for text in texts:
             if not text:
@@ -160,6 +171,7 @@ class NgramPredictor:
         self.train_tokens(tokens)
 
     def _prefix(self, text):
+        # Presenter: Detect a partial word so we can autocomplete it.
         match = re.search(r"([a-zA-Z']+)$", text)
         if match and not text.endswith(" "):
             return match.group(1).lower()
@@ -172,6 +184,7 @@ class NgramPredictor:
         return [w for w, _ in items[:k]]
 
     def suggest(self, text, k=3):
+        # Presenter: Use longest context first (trigram -> bigram -> unigram).
         prefix = self._prefix(text)
         context_text = text[:-len(prefix)] if prefix else text
         tokens = self.tokenize(context_text)
@@ -183,6 +196,7 @@ class NgramPredictor:
         return self._filter_candidates(self.unigrams, prefix, k)
 
     def complete_with(self, text, word):
+        # Presenter: Replace a partial word or append a new word with spacing.
         if not word:
             return text
         match = re.search(r"([a-zA-Z']+)$", text)
@@ -193,6 +207,7 @@ class NgramPredictor:
         return text + sep + word + " "
 
 
+# Presenter: Helper to draw rounded rectangles for the phone UI.
 def round_rect(canvas, x1, y1, x2, y2, r=24, **kw):
     points = [
         x1 + r,
@@ -225,6 +240,7 @@ def round_rect(canvas, x1, y1, x2, y2, r=24, **kw):
 
 class PhoneFrame(tk.Tk):
     def __init__(self, title=APP_TITLE):
+        # Presenter: Create a phone-like frame to make the demo feel familiar.
         super().__init__()
         self.title(title)
         self.configure(bg=COLORS["outer_bg"])
@@ -275,6 +291,7 @@ class PhoneFrame(tk.Tk):
 
 class MobilePredictiveApp:
     def __init__(self, root, predictor, sources):
+        # Presenter: Wire the model to the UI and enable live suggestions.
         self.root = root
         self.predictor = predictor
         self.sources = sources
@@ -285,6 +302,7 @@ class MobilePredictiveApp:
         self.refresh_suggestions()
 
     def _build_ui(self):
+        # Presenter: Main UI layout: header, stats, text area, chips, buttons, keyboard.
         sf = self.root.screen_frame
 
         self.hfont = font.Font(family="Segoe UI", size=16, weight="bold")
@@ -437,6 +455,7 @@ class MobilePredictiveApp:
         self.text.bind("<KeyRelease>", self._on_key_release)
 
     def _stats_text(self):
+        # Presenter: Show dataset size to emphasize training scale.
         source_names = [name for name, _ in self.sources]
         return (
             f"Tokens: {self.predictor.total_tokens:,}  "
@@ -448,6 +467,7 @@ class MobilePredictiveApp:
         self.stats_label.config(text=self._stats_text())
 
     def _clear_placeholder(self, event=None):
+        # Presenter: UX polish so the textbox feels like a real chat app.
         if self.text.get("1.0", "end-1c") == self.placeholder:
             self.text.delete("1.0", "end")
             self.text.config(fg=COLORS["text"])
@@ -469,6 +489,7 @@ class MobilePredictiveApp:
         self.refresh_suggestions()
 
     def _apply_chip(self, word):
+        # Presenter: Apply a suggestion and immediately refresh new options.
         if not word or word == "-":
             return
         content = self._get_text()
@@ -479,6 +500,7 @@ class MobilePredictiveApp:
         self.refresh_suggestions()
 
     def refresh_suggestions(self):
+        # Presenter: Pull top-3 next-word predictions from the model.
         content = self._get_text()
         suggs = self.predictor.suggest(content, k=3)
         for i, btn in enumerate(self.chips):
@@ -490,6 +512,7 @@ class MobilePredictiveApp:
             self.refresh_suggestions()
 
     def _add_file(self):
+        # Presenter: Let users expand the dataset live during the demo.
         path = filedialog.askopenfilename(
             title="Add a text file",
             filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
@@ -506,6 +529,7 @@ class MobilePredictiveApp:
         self.refresh_suggestions()
 
     def _build_keyboard(self, parent):
+        # Presenter: On-screen keyboard to mimic a mobile typing experience.
         kb = tk.Frame(parent, bg=COLORS["keyboard_bg"])
         kb.pack(fill="x", padx=8, pady=(0, 8))
 
@@ -589,6 +613,7 @@ class MobilePredictiveApp:
 
 
 def main():
+    # Presenter: Startup = ensure data, load corpora, train model, launch UI.
     ensure_nltk_data()
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
